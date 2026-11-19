@@ -48,15 +48,15 @@ def main() -> None:
 
     with st.sidebar:
         st.header("Documents")
-        uploads = st.file_uploader(
-            "Upload PDF files", type=["pdf"], accept_multiple_files=True
-        )
+        uploads = st.file_uploader("Upload PDF files", type=["pdf"], accept_multiple_files=True)
 
         if st.button("Load uploaded files", type="primary", use_container_width=True):
             if not uploads:
                 st.info("Choose at least one PDF first.")
             else:
-                for uploaded in uploaded_files_to_process(uploads, pipeline):
+                for uploaded in uploads:
+                    if uploaded.name in pipeline.loaded_documents:
+                        continue
                     try:
                         added = pipeline.add_pdf(uploaded.getvalue(), uploaded.name)
                         st.success(f"{uploaded.name}: {added} chunks indexed.")
@@ -121,11 +121,6 @@ def main() -> None:
     st.session_state.messages.append(
         {"role": "assistant", "content": answer.text, "sources": answer.sources}
     )
-
-
-def uploaded_files_to_process(uploads, pipeline):
-    """Skip files already in the index so re-clicking the button is harmless."""
-    return [u for u in uploads if u.name not in pipeline.loaded_documents]
 
 
 if __name__ == "__main__":
