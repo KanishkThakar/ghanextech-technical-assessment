@@ -4,7 +4,7 @@ A multi-turn chat agent that decides, on its own, whether a question needs a
 tool, which one, and with what arguments. Built on Groq's OpenAI-compatible
 chat completions API with native function calling.
 
-**Live app:** https://ghanex-agent.onrender.com
+**Live app:** https://ghanex-kt-agent.onrender.com
 
 ## What it does
 

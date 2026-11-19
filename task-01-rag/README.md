@@ -3,7 +3,7 @@
 Upload one or more PDFs, ask questions in plain English, and get answers that
 are grounded in those documents only, with page-level citations.
 
-**Live demo:** _added after deployment_
+**Live app:** https://ghanex-rag.onrender.com
 
 ## Architecture
 

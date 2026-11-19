@@ -5,7 +5,7 @@ language mix, activity, contributor spread, an LLM-written review with strengths
 and at least three concrete recommendations, and a list of contribution
 opportunities for someone who wants to help.
 
-**Live app:** https://ghanex-analyzer.onrender.com
+**Live app:** https://ghanex-task-03-analyzer.onrender.com
 
 ## What it does
 
