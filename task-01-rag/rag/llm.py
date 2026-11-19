@@ -13,7 +13,7 @@ from typing import List
 import requests
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 TIMEOUT_SECONDS = 60
 
 SYSTEM_PROMPT = """You are a document question-answering assistant.
