@@ -7,6 +7,7 @@ still shows something useful when the model is unavailable.
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
 from analyzer.github_client import (
@@ -151,3 +152,67 @@ with right:
         [(row["date"], row["commits"]) for row in commit_activity(snapshot.recent_commits)],
     )
 
+
+# --- recent commits and contributors ----------------------------------------
+with st.expander("Recent commits"):
+    if snapshot.recent_commits:
+        st.dataframe(
+            pd.DataFrame(snapshot.recent_commits)[["sha", "date", "author", "message"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.caption("None returned.")
+
+with st.expander("Top contributors"):
+    if snapshot.contributors:
+        st.dataframe(pd.DataFrame(snapshot.contributors), use_container_width=True, hide_index=True)
+    else:
+        st.caption("None returned.")
+
+with st.expander("Dependency manifests found"):
+    if snapshot.manifests:
+        for manifest_name, text in snapshot.manifests.items():
+            st.markdown("**{}**".format(manifest_name))
+            st.code(text[:1500], language="text")
+    else:
+        st.caption("No known manifest at the repository root.")
+
+# --- the written review ------------------------------------------------------
+st.divider()
+st.subheader("Review")
+with st.spinner("Asking the model for the review…"):
+    try:
+        review = analyse(summary_for_prompt(snapshot))
+    except InsightError as exc:
+        st.error(str(exc))
+        st.stop()
+
+st.markdown("**Summary**")
+st.write(review["summary"] or "The model returned no summary.")
+
+st.markdown("**Strengths**")
+for item in review["strengths"] or ["None listed."]:
+    st.markdown("- {}".format(item))
+
+st.markdown("**Recommendations**")
+for item in review["recommendations"] or ["None listed."]:
+    st.markdown("- {}".format(item))
+
+st.markdown("**Where a new contributor could start**")
+if review["contribution_opportunities"]:
+    for item in review["contribution_opportunities"]:
+        title = item.get("title", "Untitled")
+        where = item.get("where", "")
+        why = item.get("why", "")
+        suffix = " · `{}`".format(where) if where else ""
+        st.markdown("**{}**{}".format(title, suffix))
+        if why:
+            st.caption(why)
+else:
+    st.caption("None listed.")
+
+if review["risks"]:
+    st.markdown("**Risks and maintenance notes**")
+    for item in review["risks"]:
+        st.write("- " + item)
