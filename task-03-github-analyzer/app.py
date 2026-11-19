@@ -7,7 +7,6 @@ still shows something useful when the model is unavailable.
 
 from __future__ import annotations
 
-import pandas as pd
 import streamlit as st
 
 from analyzer.github_client import (
@@ -101,103 +100,54 @@ st.caption(
 if snapshot.topics:
     st.caption("Topics: " + ", ".join(snapshot.topics))
 
+def bar_chart(title: str, rows: list[tuple[str, float]], unit: str = "") -> None:
+    """Draw a horizontal bar chart with plain HTML.
+
+    Streamlit's st.bar_chart pulls in Altair, which breaks on some Python
+    versions (3.14 removed the TypedDict `closed` argument Altair 5 passes).
+    A few lines of HTML keep the dashboard dependency-free and readable.
+    `rows` is (label, value) pairs; the longest bar is the largest value.
+    """
+    st.markdown("**{}**".format(title))
+    if not rows:
+        st.caption("Nothing to chart here.")
+        return
+    top = max(value for _, value in rows) or 1
+    bars = []
+    for label, value in rows:
+        width = max(2.0, 100.0 * value / top)
+        shown = "{:,.0f}{}".format(value, unit)
+        bars.append(
+            '<div style="display:flex;align-items:center;gap:8px;margin:3px 0">'
+            '<div style="width:32%;font-size:12px;color:#555;text-align:right;'
+            'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{}</div>'
+            '<div style="flex:1;background:#eef1f5;border-radius:4px">'
+            '<div style="width:{:.1f}%;background:#4c78a8;height:14px;border-radius:4px"></div>'
+            "</div>"
+            '<div style="width:15%;font-size:12px;color:#333">{}</div>'
+            "</div>".format(label, width, shown)
+        )
+    st.markdown("".join(bars), unsafe_allow_html=True)
+
+
 # --- charts ------------------------------------------------------------------
 left, right = st.columns(2)
 
 with left:
-    st.markdown("**Languages by bytes**")
-    languages = language_breakdown(snapshot.languages)
-    if languages:
-        frame = pd.DataFrame(languages)
-        st.bar_chart(frame.set_index("language")["percent"], height=260)
-    else:
-        st.caption("GitHub reported no language breakdown.")
-
-    st.markdown("**Files by type**")
-    types = file_type_counts(snapshot.tree_paths)
-    if types:
-        frame = pd.DataFrame(list(types.items()), columns=["type", "files"])
-        st.bar_chart(frame.set_index("type")["files"], height=260)
-    else:
-        st.caption("No recognised source files in the tree.")
+    bar_chart(
+        "Languages by bytes",
+        [(row["language"], row["percent"]) for row in language_breakdown(snapshot.languages)],
+        unit="%",
+    )
+    bar_chart("Files by type", list(file_type_counts(snapshot.tree_paths).items()))
 
 with right:
-    st.markdown("**Busiest directories**")
-    directories = top_directories(snapshot.tree_paths)
-    if directories:
-        frame = pd.DataFrame(directories)
-        st.bar_chart(frame.set_index("directory")["files"], height=260)
-    else:
-        st.caption("The repository is flat: no subdirectories.")
+    bar_chart(
+        "Busiest directories",
+        [(row["directory"], row["files"]) for row in top_directories(snapshot.tree_paths)],
+    )
+    bar_chart(
+        "Commits per day (recent window)",
+        [(row["date"], row["commits"]) for row in commit_activity(snapshot.recent_commits)],
+    )
 
-    st.markdown("**Commits per day (recent window)**")
-    activity = commit_activity(snapshot.recent_commits)
-    if activity:
-        frame = pd.DataFrame(activity)
-        st.bar_chart(frame.set_index("date")["commits"], height=260)
-    else:
-        st.caption("No recent commits were returned.")
-
-# --- recent commits and contributors ----------------------------------------
-with st.expander("Recent commits"):
-    if snapshot.recent_commits:
-        st.dataframe(
-            pd.DataFrame(snapshot.recent_commits)[["sha", "date", "author", "message"]],
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.caption("None returned.")
-
-with st.expander("Top contributors"):
-    if snapshot.contributors:
-        st.dataframe(pd.DataFrame(snapshot.contributors), use_container_width=True, hide_index=True)
-    else:
-        st.caption("None returned.")
-
-with st.expander("Dependency manifests found"):
-    if snapshot.manifests:
-        for manifest_name, text in snapshot.manifests.items():
-            st.markdown("**{}**".format(manifest_name))
-            st.code(text[:1500], language="text")
-    else:
-        st.caption("No known manifest at the repository root.")
-
-# --- the written review ------------------------------------------------------
-st.divider()
-st.subheader("Review")
-with st.spinner("Asking the model for the review…"):
-    try:
-        review = analyse(summary_for_prompt(snapshot))
-    except InsightError as exc:
-        st.error(str(exc))
-        st.stop()
-
-st.markdown("**Summary**")
-st.write(review["summary"] or "The model returned no summary.")
-
-st.markdown("**Strengths**")
-for item in review["strengths"] or ["None listed."]:
-    st.markdown("- {}".format(item))
-
-st.markdown("**Recommendations**")
-for item in review["recommendations"] or ["None listed."]:
-    st.markdown("- {}".format(item))
-
-st.markdown("**Where a new contributor could start**")
-if review["contribution_opportunities"]:
-    for item in review["contribution_opportunities"]:
-        title = item.get("title", "Untitled")
-        where = item.get("where", "")
-        why = item.get("why", "")
-        suffix = " · `{}`".format(where) if where else ""
-        st.markdown("**{}**{}".format(title, suffix))
-        if why:
-            st.caption(why)
-else:
-    st.caption("None listed.")
-
-if review["risks"]:
-    st.markdown("**Risks and maintenance notes**")
-    for item in review["risks"]:
-        st.write("- " + item)
