@@ -18,7 +18,7 @@ rag/ingest.py      pypdf → per-page text, typed errors for
 rag/chunking.py    recursive character splitting (800 / 150 overlap)
         │
         ▼
-rag/embeddings.py  all-MiniLM-L6-v2, L2-normalised vectors
+rag/embeddings.py  bge-small-en-v1.5 (fastembed), L2-normalised
         │
         ▼
 rag/store.py       FAISS IndexFlatIP (exact cosine search) + chunk metadata
@@ -27,7 +27,7 @@ rag/store.py       FAISS IndexFlatIP (exact cosine search) + chunk metadata
 rag/pipeline.py    query → embed → top-k → numbered context → LLM
         │
         ▼
-rag/llm.py         Groq llama-3.3-70b, strict "answer only from context" prompt
+rag/llm.py         Groq gpt-oss-120b, strict "answer only from context" prompt
         │
         ▼
 app.py             chat history, answer, expandable sources with page numbers
@@ -40,7 +40,7 @@ encrypted?", "where would you add OCR?") map to a single file.
 
 | Parameter | Value | Why |
 |---|---|---|
-| `CHUNK_SIZE` | 800 characters | ~150–200 English words: a full idea, still well inside MiniLM's 256-token window, so nothing is silently truncated at embedding time. |
+| `CHUNK_SIZE` | 800 characters | ~150–200 English words: a full idea, still well inside the model's 512-token window, so nothing is silently truncated at embedding time. |
 | `CHUNK_OVERLAP` | 150 characters | ~20% overlap, so a sentence that straddles a boundary appears whole in one of the two chunks. |
 | Separators | `\n\n`, `\n`, `. `, `? `, `! `, `; `, `, `, ` ` | Coarsest boundary first: paragraphs, then lines, then sentences, then words. Mid-word cuts only as a last resort. |
 
@@ -49,9 +49,12 @@ number and citations stay exact.
 
 ## Embedding model
 
-`sentence-transformers/all-MiniLM-L6-v2`: ~90 MB, CPU-only, milliseconds per
-chunk, 384 dimensions, and strong on passage retrieval benchmarks. Vectors are
-L2-normalised, which makes FAISS inner product identical to cosine similarity.
+`BAAI/bge-small-en-v1.5` through `fastembed`: 384 dimensions, ONNX runtime, no
+PyTorch, milliseconds per chunk, and strong on passage retrieval. Skipping
+PyTorch is deliberate: the app runs on a free 512 MB container and torch alone
+needs more than that. Vectors are L2-normalised, which makes FAISS inner product
+identical to cosine similarity. Questions are embedded with bge's retrieval
+instruction prefix, passages without it, as the model was trained.
 
 ## Index refresh
 

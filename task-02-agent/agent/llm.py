@@ -21,20 +21,37 @@ class LLMError(Exception):
     """Raised when the model cannot be reached or refuses the request."""
 
 
-def get_api_key() -> str:
-    """Read the key from Streamlit secrets, then the environment.
+def _streamlit_secret(name: str) -> str:
+    """Read a Streamlit secret, but only when a secrets file actually exists.
 
-    Streamlit Cloud stores secrets in st.secrets; local runs use a .env file.
-    The key is never written to the repo.
+    Touching st.secrets with no file present makes Streamlit print a
+    "No secrets found" banner on the page, so check for the file first.
     """
     try:
+        from pathlib import Path
+
         import streamlit as st
 
-        if "GROQ_API_KEY" in st.secrets:
-            return str(st.secrets["GROQ_API_KEY"])
-    except Exception:  # noqa: BLE001 - not running under Streamlit
-        pass
-    return os.environ.get("GROQ_API_KEY", "")
+        candidates = (
+            Path.cwd() / ".streamlit" / "secrets.toml",
+            Path.home() / ".streamlit" / "secrets.toml",
+        )
+        if not any(path.exists() for path in candidates):
+            return ""
+        return str(st.secrets[name])
+    except Exception:  # noqa: BLE001 - not under Streamlit, or no such key
+        return ""
+
+
+def get_api_key() -> str:
+    """Environment first (deployments), then Streamlit secrets (local runs).
+
+    The key is never written to the repo.
+    """
+    key = os.environ.get("GROQ_API_KEY", "").strip()
+    if key:
+        return key
+    return _streamlit_secret("GROQ_API_KEY").strip()
 
 
 def chat(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]] | None = None,

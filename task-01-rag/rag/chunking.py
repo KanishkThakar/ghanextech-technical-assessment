@@ -9,7 +9,7 @@ Parameters and why they are what they are:
 
 CHUNK_SIZE = 800 characters
     ~150-200 English words. Big enough to hold a complete argument, small
-    enough to stay well inside MiniLM's 256-token window, so nothing is
+    enough to stay well inside the embedding model's 512-token window, so nothing is
     silently truncated at embedding time.
 
 CHUNK_OVERLAP = 150 characters

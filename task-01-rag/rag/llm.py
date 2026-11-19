@@ -31,16 +31,34 @@ class LLMError(RuntimeError):
     """Raised when the LLM call fails in a way the UI should explain."""
 
 
-def get_api_key() -> str | None:
-    """Read the key from Streamlit secrets, then the environment."""
+def _streamlit_secret(name: str) -> str:
+    """Read a Streamlit secret, but only when a secrets file actually exists.
+
+    Touching st.secrets with no file present makes Streamlit print a
+    "No secrets found" banner on the page, so check for the file first.
+    """
     try:
+        from pathlib import Path
+
         import streamlit as st
 
-        if "GROQ_API_KEY" in st.secrets:
-            return str(st.secrets["GROQ_API_KEY"])
-    except Exception:
-        pass
-    return os.environ.get("GROQ_API_KEY")
+        candidates = (
+            Path.cwd() / ".streamlit" / "secrets.toml",
+            Path.home() / ".streamlit" / "secrets.toml",
+        )
+        if not any(path.exists() for path in candidates):
+            return ""
+        return str(st.secrets[name])
+    except Exception:  # noqa: BLE001 - not under Streamlit, or no such key
+        return ""
+
+
+def get_api_key() -> str | None:
+    """Environment first (deployments), then Streamlit secrets (local runs)."""
+    key = os.environ.get("GROQ_API_KEY", "").strip()
+    if key:
+        return key
+    return _streamlit_secret("GROQ_API_KEY").strip() or None
 
 
 def build_context_block(passages: List[str]) -> str:
